@@ -7,6 +7,7 @@ import {
   CssBaseline,
   Box,
   Typography,
+  CircularProgress,
 } from "@mui/material";
 import PokemonCard from "./components/PokemonCard";
 import { IPokemon, ISelectedPokemon } from "./types";
@@ -14,42 +15,56 @@ import { theme } from "./styles/theme";
 import TheHeader from "./components/TheHeader";
 
 function App() {
+  const [isLoadingList, setIsLoadingList] = useState(false);
+  const [isLoadingPokemon, setIsLoadingPokemon] = useState(false);
+  const [error, setError] = useState<null | string>(null);
   const [pokemons, setPokemons] = useState<IPokemon[]>([]);
   const [selectedPokemon, setSelectedPokemon] =
     useState<ISelectedPokemon | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
-      try {
-        const response = await axios.get(
-          "https://pokeapi.co/api/v2/pokemon/?limit=10"
-        );
-        setPokemons(response.data.results);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      }
+      setIsLoadingList(true);
+      setTimeout(async () => {
+        try {
+          const response = await axios.get(
+            "https://pokeapi.co/api/v2/pokemon/?limit=10"
+          );
+          setPokemons(response.data.results);
+        } catch (error) {
+          console.error("Error fetching data:", error);
+          setError("Произошла ошибка при загрузке списка покемонов");
+        } finally {
+          setIsLoadingList(false);
+        }
+      }, 500);
     };
 
     fetchData();
   }, []);
 
   const handlePokemonClick = async (pokemon: IPokemon) => {
-    try {
-      console.log(pokemon);
-      const response = await axios.get(pokemon.url);
-      const pokemonData = {
-        name: response.data.name,
-        img: response.data.sprites.front_shiny,
-        starred: response.data.moves.length,
-        id: response.data.id,
-        height: response.data.height,
-        attack: response.data.stats[0].base_stat,
-      };
-      setSelectedPokemon(pokemonData);
-      console.log(response);
-    } catch (error) {
-      console.error("Error fetching pokemon data:", error);
-    }
+    setIsLoadingPokemon(true);
+
+    setTimeout(async () => {
+      try {
+        const response = await axios.get(pokemon.url);
+        const pokemonData = {
+          name: response.data.name,
+          img: response.data.sprites.front_shiny,
+          starred: response.data.moves.length,
+          id: response.data.id,
+          height: response.data.height,
+          attack: response.data.stats[0].base_stat,
+        };
+        setSelectedPokemon(pokemonData);
+      } catch (error) {
+        console.error("Error fetching pokemon data:", error);
+        setError("Произошла ошибка при загрузке описания покемона");
+      } finally {
+        setIsLoadingPokemon(false);
+      }
+    }, 700);
   };
 
   return (
@@ -66,25 +81,47 @@ function App() {
             }}
           >
             <Box sx={{ width: "50%", display: "block" }}>
-              {pokemons.map((pokemon) => (
-                <Box
+              {isLoadingList && (
+                <CircularProgress
                   sx={{
-                    display: "inline-block",
-                    margin: "4px",
+                    display: "flex",
+                    margin: "100px auto",
                   }}
-                  key={pokemon.name}
+                />
+              )}
+              {error && (
+                <Typography
+                  sx={{
+                    height: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                 >
-                  <Chip
+                  {error}
+                </Typography>
+              )}
+              {!error &&
+                !isLoadingList &&
+                pokemons.map((pokemon) => (
+                  <Box
                     sx={{
-                      padding: "28px 10px",
-                      fontSize: "20px",
-                      borderRadius: "30px",
+                      display: "inline-block",
+                      margin: "4px",
                     }}
-                    label={pokemon.name}
-                    onClick={() => handlePokemonClick(pokemon)}
-                  />
-                </Box>
-              ))}
+                    key={pokemon.name}
+                  >
+                    <Chip
+                      sx={{
+                        padding: "28px 10px",
+                        fontSize: "20px",
+                        borderRadius: "30px",
+                      }}
+                      label={pokemon.name}
+                      onClick={() => handlePokemonClick(pokemon)}
+                    />
+                  </Box>
+                ))}
             </Box>
             <Box
               sx={{
@@ -95,9 +132,9 @@ function App() {
                 justifyContent: "center",
               }}
             >
-              {!selectedPokemon && (
+              {!error && !isLoadingPokemon && !selectedPokemon && (
                 <Typography
-                  style={{
+                  sx={{
                     height: "100%",
                     display: "flex",
                     alignItems: "center",
@@ -107,7 +144,22 @@ function App() {
                   Покемон не выбран!
                 </Typography>
               )}
-              {selectedPokemon && (
+              {!error && isLoadingPokemon && (
+                <>
+                  <CircularProgress />
+                  <Typography
+                    sx={{
+                      height: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    Загрузка данных о покемоне..
+                  </Typography>
+                </>
+              )}
+              {!error && !isLoadingPokemon && selectedPokemon && (
                 <PokemonCard selectedPokemon={selectedPokemon} />
               )}
             </Box>
